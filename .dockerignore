@@ -1,0 +1,13 @@
+node_modules
+.next
+.git
+.gitignore
+data
+caddy/data
+caddy/config
+*.md
+!README.md
+.env
+.env.*
+!.env.example
+npm-debug.log*

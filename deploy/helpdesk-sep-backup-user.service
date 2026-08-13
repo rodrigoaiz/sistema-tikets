@@ -1,0 +1,8 @@
+[Unit]
+Description=Respaldo de usuario del Help Desk SEP
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/rodrigo-aizpuru/Documentos/Dev/tickets-sep
+Environment=BACKUP_DIR=/home/rodrigo-aizpuru/backups/helpdesk-sep
+ExecStart=/home/rodrigo-aizpuru/Documentos/Dev/tickets-sep/scripts/backup.sh

@@ -1,0 +1,176 @@
+// Prisma schema — Help Desk de soporte técnico (Prepa en Línea SEP, curso de inglés)
+// Base de datos: PostgreSQL autoalojada (Docker)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  AGENT
+}
+
+enum Priority {
+  LOW // Baja
+  MEDIUM // Media
+  HIGH // Alta
+}
+
+enum TicketStatus {
+  OPEN // Abierto
+  IN_PROGRESS // En progreso
+  CLOSED // Cerrado
+}
+
+enum TicketSource {
+  MANUAL
+  EMAIL
+}
+
+enum IncomingEmailStatus {
+  PENDING // Pendiente de triage
+  CONVERTED // Convertido en ticket
+  REPLIED // Respondido directo, sin ticket
+  DISCARDED // Descartado / no requiere acción
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         Role     @default(ADMIN)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  assignedTickets Ticket[]      @relation("AssignedTickets")
+  ticketReplies   TicketReply[]
+
+  @@map("users")
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  key         String   @unique // slug estable, ej. "acceso_login"
+  label       String // etiqueta visible, ej. "Acceso / Inicio de sesión"
+  description String?
+  order       Int      @default(0)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tickets Ticket[]
+
+  @@map("categories")
+}
+
+model Ticket {
+  id            String       @id @default(cuid())
+  number        Int          @unique @default(autoincrement()) // folio corto, ej. #142
+  subject       String
+  description   String
+  studentEmail  String
+  studentName   String?
+  priority      Priority     @default(MEDIUM)
+  status        TicketStatus @default(OPEN)
+  source        TicketSource @default(MANUAL)
+  categoryId    String?
+  category      Category?    @relation(fields: [categoryId], references: [id])
+  assignedToId  String?
+  assignedTo    User?        @relation("AssignedTickets", fields: [assignedToId], references: [id])
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  closedAt      DateTime?
+
+  replies        TicketReply[]
+  attachments    Attachment[]
+  incomingEmails IncomingEmail[]
+
+  @@index([status])
+  @@index([priority])
+  @@index([createdAt])
+  @@map("tickets")
+}
+
+model TicketReply {
+  id             String   @id @default(cuid())
+  ticketId       String
+  ticket         Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId       String?
+  author         User?    @relation(fields: [authorId], references: [id])
+  body           String
+  isInternalNote Boolean  @default(false) // true = nota interna, no se envía al alumno
+  sentViaEmail   Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  attachments Attachment[]
+
+  @@index([ticketId])
+  @@map("ticket_replies")
+}
+
+model IncomingEmail {
+  id         String              @id @default(cuid())
+  messageId  String?             @unique // Message-ID del correo original, si existe
+  fromEmail  String
+  fromName   String?
+  subject    String
+  bodyText   String
+  bodyHtml   String?
+  receivedAt DateTime            @default(now())
+  status     IncomingEmailStatus @default(PENDING)
+  ticketId   String?
+  ticket     Ticket?             @relation(fields: [ticketId], references: [id])
+  createdAt  DateTime            @default(now())
+
+  attachments Attachment[]
+
+  @@index([status])
+  @@index([receivedAt])
+  @@map("incoming_emails")
+}
+
+model Attachment {
+  id              String         @id @default(cuid())
+  filename        String // nombre original
+  storedFilename  String         @unique // nombre en disco (evita colisiones)
+  mimeType        String
+  size            Int
+  createdAt       DateTime       @default(now())
+
+  ticketId        String?
+  ticket          Ticket?        @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticketReplyId   String?
+  ticketReply     TicketReply?   @relation(fields: [ticketReplyId], references: [id], onDelete: Cascade)
+  incomingEmailId String?
+  incomingEmail   IncomingEmail? @relation(fields: [incomingEmailId], references: [id], onDelete: Cascade)
+
+  @@map("attachments")
+}
+
+model MailboxConfig {
+  id                   String   @id @default(cuid())
+  name                 String   @default("Bandeja principal")
+  imapHost             String
+  imapPort             Int      @default(993)
+  imapUser             String
+  imapPasswordEncrypted String
+  imapUseTls           Boolean  @default(true)
+  smtpHost             String
+  smtpPort             Int      @default(465)
+  smtpUser             String
+  smtpPasswordEncrypted String
+  smtpUseTls           Boolean  @default(true)
+  fromAddress          String
+  enabled              Boolean  @default(false)
+  lastPolledAt         DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@map("mailbox_configs")
+}

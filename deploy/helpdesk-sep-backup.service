@@ -1,0 +1,10 @@
+[Unit]
+Description=Respaldo del Help Desk SEP
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/home/rodrigo-aizpuru/Documentos/Dev/tickets-sep
+ExecStart=/home/rodrigo-aizpuru/Documentos/Dev/tickets-sep/scripts/backup.sh
