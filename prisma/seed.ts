@@ -21,16 +21,29 @@ async function main() {
 
   const passwordHash = await bcrypt.hash(adminPassword, 12);
 
-  const admin = await prisma.user.upsert({
-    where: { email: adminEmail },
-    update: { name: adminName },
-    create: {
-      email: adminEmail,
-      name: adminName,
-      passwordHash,
-      role: "ADMIN",
-    },
-  });
+  // El administrador inicial puede cambiar de correo en `.env`. Si el correo
+  // nuevo no existe, reutiliza el administrador más antiguo para conservar
+  // sus tickets y respuestas en lugar de crear una segunda cuenta.
+  const existingAdmin =
+    (await prisma.user.findUnique({ where: { email: adminEmail } })) ??
+    (await prisma.user.findFirst({
+      where: { role: "ADMIN" },
+      orderBy: { createdAt: "asc" },
+    }));
+
+  const admin = existingAdmin
+    ? await prisma.user.update({
+        where: { id: existingAdmin.id },
+        data: { email: adminEmail, name: adminName, passwordHash },
+      })
+    : await prisma.user.create({
+        data: {
+          email: adminEmail,
+          name: adminName,
+          passwordHash,
+          role: "ADMIN",
+        },
+      });
 
   console.log(`Usuario admin listo: ${admin.email}`);
 

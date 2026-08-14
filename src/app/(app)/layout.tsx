@@ -15,12 +15,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <NotificationProvider>
       <div className="flex h-svh overflow-hidden">
         <div className="hidden md:flex md:shrink-0">
-          <AppSidebar />
+        <AppSidebar role={session.user.role} />
         </div>
         <div className="flex min-w-0 flex-1 flex-col">
           <AppHeader
-            name={session.user.name ?? "Agente"}
-            email={session.user.email ?? ""}
+          name={session.user.name ?? "Agente"}
+          email={session.user.email ?? ""}
+          role={session.user.role}
           />
           <main className="flex-1 overflow-y-auto">
             <div className="mx-auto w-full max-w-6xl px-4 py-6 md:px-8 md:py-8">{children}</div>

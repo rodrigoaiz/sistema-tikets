@@ -49,24 +49,24 @@ export default async function DashboardPage() {
         ]}
       />
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-5">
-        <div className="rounded-lg border border-border p-5 lg:col-span-3">
+      <div className="mt-6 grid min-w-0 gap-6 lg:grid-cols-5">
+        <div className="min-w-0 rounded-lg border border-border p-5 lg:col-span-3">
           <h2 className="mb-4 text-sm font-medium">Tickets creados — últimos 14 días</h2>
           <TrendChart data={trendData} />
         </div>
-        <div className="rounded-lg border border-border p-5 lg:col-span-2">
+        <div className="min-w-0 rounded-lg border border-border p-5 lg:col-span-2">
           <h2 className="mb-4 text-sm font-medium">Distribución por estado</h2>
           <StatusDonutChart data={statusChartData} />
         </div>
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-5">
-        <div className="rounded-lg border border-border p-5 lg:col-span-2">
+      <div className="mt-6 grid min-w-0 gap-6 lg:grid-cols-5">
+        <div className="min-w-0 rounded-lg border border-border p-5 lg:col-span-2">
           <h2 className="mb-4 text-sm font-medium">Categorías con más tickets activos</h2>
           <CategoryChart data={categoryChartData} />
         </div>
 
-        <div className="rounded-lg border border-border lg:col-span-3">
+        <div className="min-w-0 rounded-lg border border-border lg:col-span-3">
           <div className="flex items-center justify-between px-5 pt-5">
             <h2 className="text-sm font-medium">Tickets recientes</h2>
             <Link

@@ -1,10 +1,12 @@
 import { auth } from "@/auth";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MailboxForm } from "@/components/settings/mailbox-form";
 import { CategoriesManager } from "@/components/settings/categories-manager";
 import { ProfileForm } from "@/components/settings/profile-form";
+import { UsersManager } from "@/components/settings/users-manager";
 
 export const dynamic = "force-dynamic";
 
@@ -14,11 +16,17 @@ export default async function SettingsPage({
   searchParams: Promise<{ tab?: string | string[] }>;
 }) {
   const session = await auth();
+  if (!session?.user) redirect("/login");
+  if (session.user.role !== "ADMIN") redirect("/profile");
   const params = await searchParams;
   const defaultTab = params.tab === "account" ? "account" : "mailbox";
-  const [mailbox, categories] = await Promise.all([
+  const [mailbox, categories, users] = await Promise.all([
     prisma.mailboxConfig.findFirst(),
     prisma.category.findMany({ orderBy: { order: "asc" } }),
+    prisma.user.findMany({
+      orderBy: [{ role: "asc" }, { name: "asc" }],
+      select: { id: true, name: true, email: true, role: true, createdAt: true },
+    }),
   ]);
 
   return (
@@ -29,6 +37,7 @@ export default async function SettingsPage({
         <TabsList>
           <TabsTrigger value="mailbox">Correo</TabsTrigger>
           <TabsTrigger value="categories">Categorías</TabsTrigger>
+          <TabsTrigger value="users">Usuarios</TabsTrigger>
           <TabsTrigger value="account">Mi cuenta</TabsTrigger>
         </TabsList>
 
@@ -53,6 +62,10 @@ export default async function SettingsPage({
 
         <TabsContent value="categories" className="pt-6">
           <CategoriesManager categories={categories} />
+        </TabsContent>
+
+        <TabsContent value="users" className="pt-6">
+          <UsersManager users={users} />
         </TabsContent>
 
         <TabsContent value="account" className="pt-6">

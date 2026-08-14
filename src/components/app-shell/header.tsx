@@ -9,7 +9,7 @@ import { ThemeToggle } from "@/components/app-shell/theme-toggle";
 import { UserMenu } from "@/components/app-shell/user-menu";
 import { NotificationPermissionButton } from "@/components/app-shell/notification-permission-button";
 
-export function AppHeader({ name, email }: { name: string; email: string }) {
+export function AppHeader({ name, email, role }: { name: string; email: string; role: string }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   return (
@@ -27,7 +27,7 @@ export function AppHeader({ name, email }: { name: string; email: string }) {
         <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
           <SheetContent side="left" className="w-60 p-0">
             <SheetTitle className="sr-only">Menú</SheetTitle>
-            <AppSidebar />
+            <AppSidebar role={role} />
           </SheetContent>
         </Sheet>
       </div>

@@ -14,7 +14,7 @@ const chartConfig = {
 
 export function TrendChart({ data }: { data: Array<{ date: string; count: number }> }) {
   return (
-    <ChartContainer config={chartConfig} className="h-56 w-full">
+    <ChartContainer config={chartConfig} className="h-56 min-w-0 w-full">
       <LineChart data={data} margin={{ left: 4, right: 12, top: 8, bottom: 0 }}>
         <CartesianGrid vertical={false} strokeDasharray="3 3" />
         <XAxis

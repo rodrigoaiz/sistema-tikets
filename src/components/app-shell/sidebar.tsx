@@ -13,7 +13,7 @@ const NAV_ITEMS = [
   { href: "/settings", label: "Ajustes", icon: Settings },
 ];
 
-export function AppSidebar() {
+export function AppSidebar({ role }: { role: string }) {
   const pathname = usePathname();
   const { pendingEmailsCount } = useNotificationCenter();
 
@@ -29,7 +29,7 @@ export function AppSidebar() {
       </div>
 
       <nav className="flex flex-1 flex-col gap-0.5 px-3 py-2">
-        {NAV_ITEMS.map((item) => {
+        {NAV_ITEMS.filter((item) => role === "ADMIN" || item.href !== "/settings").map((item) => {
           const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
           const Icon = item.icon;
           const showBadge = item.href === "/inbox" && pendingEmailsCount > 0;

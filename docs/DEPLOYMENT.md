@@ -377,3 +377,33 @@ que el dump y los archivos de respaldo son legibles.
 
 Sin una copia externa, un fallo del disco puede destruir tanto los datos activos
 como los respaldos locales.
+
+## Cambio De Cuenta Administradora
+
+`ADMIN_EMAIL`, `ADMIN_NAME` y `ADMIN_PASSWORD` son valores de inicialización,
+pero la cuenta real vive en PostgreSQL. No basta con cambiar `.env` y esperar
+que una sesión o una cuenta persistente cambien por sí solas.
+
+El seed actualiza la cuenta administradora existente cuando cambia el correo,
+conservando las relaciones con tickets y respuestas. Para aplicar un cambio:
+
+```bash
+docker compose up -d --build
+```
+
+Después verifica la cuenta persistente sin mostrar el hash de contraseña:
+
+```bash
+docker compose exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+  -c 'SELECT email, name, role FROM users ORDER BY "createdAt";'
+```
+
+Si el navegador conserva una sesión anterior, cierra sesión o prueba una
+ventana privada. La validación real de credenciales se hace contra la base de
+datos del contenedor, no contra el texto actual de `.env`.
+
+El formulario de acceso autentica por **correo electrónico**, no por el nombre
+visible del administrador. `ADMIN_NAME` solo es el nombre mostrado después de
+iniciar sesión; no debe escribirse en el campo `Correo`. Si el navegador tiene
+un autocompletado antiguo, borrar las cookies y credenciales guardadas del host
+`132.248.218.76` o usar una ventana privada evita enviar la cuenta anterior.

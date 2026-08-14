@@ -23,6 +23,10 @@ docker compose up -d --build
 3. Abre `https://localhost:4324` en desarrollo, o `https://PUBLIC_HOST:APP_PORT/` desde otra máquina.
 4. Inicia sesión con `ADMIN_EMAIL` y `ADMIN_PASSWORD` de `.env`.
 
+El acceso usa el correo (`ADMIN_EMAIL`), no `ADMIN_NAME`. Si cambias esas
+variables después del primer arranque, revisa la guía de cuenta administradora
+en [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+
 El certificado inicial es autofirmado y el navegador mostrará una advertencia. Es esperado mientras no haya dominio; además, los equipos remotos deben confiar en la CA interna de Caddy o aceptar la advertencia. El primer arranque ejecuta las migraciones y crea el usuario administrador y las categorías predeterminadas. El seed es idempotente y no borra tickets existentes.
 
 ## Cambiar el puerto
@@ -76,6 +80,15 @@ npm run mail:poll
 ```
 
 En producción, programa `npm run mail:poll` con cron o un systemd timer cada 2–5 minutos. El script no crea tickets por sí mismo.
+
+## Usuarios y permisos
+
+El administrador puede crear usuarios desde `Ajustes > Usuarios`.
+
+- **Administrador**: acceso total, incluyendo correo, categorías, usuarios y cuenta.
+- **Agente**: acceso al dashboard, tickets, Kanban, bandeja de entrada y adjuntos; no puede modificar correo, categorías ni usuarios.
+
+Para crear un agente, captura nombre, correo y una contraseña inicial de al menos 8 caracteres. El agente puede cambiar su nombre y contraseña desde `Mi cuenta`. Las contraseñas se almacenan con hash bcrypt.
 
 ## Respaldos
 

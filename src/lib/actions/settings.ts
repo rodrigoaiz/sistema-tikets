@@ -23,6 +23,14 @@ async function requireSession() {
   return session;
 }
 
+async function requireAdmin() {
+  const session = await requireSession();
+  if (session.user.role !== "ADMIN") {
+    throw new Error("No tienes permisos para modificar la configuración.");
+  }
+  return session;
+}
+
 export type MailboxFormInput = {
   name: string;
   imapHost: string;
@@ -62,7 +70,7 @@ async function resolvePasswords(input: MailboxFormInput) {
 export async function testMailboxConnection(
   input: MailboxFormInput
 ): Promise<ActionResult<{ imapOk: boolean; smtpOk: boolean }>> {
-  await requireSession();
+  await requireAdmin();
 
   const { imapPassword, smtpPassword } = await resolvePasswords(input);
 
@@ -105,7 +113,7 @@ export async function testMailboxConnection(
 }
 
 export async function saveMailboxConfig(input: MailboxFormInput): Promise<ActionResult> {
-  await requireSession();
+  await requireAdmin();
 
   const { existing, imapPassword, smtpPassword } = await resolvePasswords(input);
 
@@ -143,7 +151,7 @@ export async function saveMailboxConfig(input: MailboxFormInput): Promise<Action
 }
 
 export async function createCategory(label: string): Promise<ActionResult> {
-  await requireSession();
+  await requireAdmin();
 
   const parsed = categoryInputSchema.safeParse({ label });
   if (!parsed.success) {
@@ -175,7 +183,7 @@ export async function toggleCategoryActive(
   categoryId: string,
   active: boolean
 ): Promise<ActionResult> {
-  await requireSession();
+  await requireAdmin();
   await prisma.category.update({ where: { id: categoryId }, data: { active } });
   revalidatePath("/settings");
   return { ok: true, data: undefined };
@@ -216,4 +224,40 @@ export async function updatePassword(input: {
   await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
 
   return { ok: true, data: undefined };
+}
+
+export async function createAgent(input: {
+  name: string;
+  email: string;
+  password: string;
+}): Promise<ActionResult<{ id: string; email: string }>> {
+  await requireAdmin();
+
+  const name = input.name.trim();
+  const email = input.email.toLowerCase().trim();
+  const password = input.password;
+
+  if (name.length < 2 || name.length > 100) {
+    return { ok: false, error: "El nombre debe tener entre 2 y 100 caracteres." };
+  }
+  if (!email || !email.includes("@")) {
+    return { ok: false, error: "Escribe un correo válido." };
+  }
+  if (password.length < 8) {
+    return { ok: false, error: "La contraseña inicial debe tener al menos 8 caracteres." };
+  }
+
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) {
+    return { ok: false, error: "Ya existe un usuario con ese correo." };
+  }
+
+  const passwordHash = await bcrypt.hash(password, 12);
+  const agent = await prisma.user.create({
+    data: { name, email, passwordHash, role: "AGENT" },
+    select: { id: true, email: true },
+  });
+
+  revalidatePath("/settings");
+  return { ok: true, data: agent };
 }

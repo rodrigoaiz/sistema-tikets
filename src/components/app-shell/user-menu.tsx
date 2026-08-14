@@ -34,7 +34,7 @@ export function UserMenu({ name, email }: { name: string; email: string }) {
         </div>
         <div className="my-1 h-px bg-border" />
         <Link
-          href="/settings?tab=account"
+          href="/profile"
           className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent"
         >
           <UserRound className="size-4" />

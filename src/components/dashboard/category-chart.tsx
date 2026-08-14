@@ -20,7 +20,7 @@ export function CategoryChart({ data }: { data: Array<{ category: string; count:
   }
 
   return (
-    <ChartContainer config={chartConfig} className="h-56 w-full">
+    <ChartContainer config={chartConfig} className="h-56 min-w-0 w-full">
       <BarChart data={data} layout="vertical" margin={{ left: 0, right: 16, top: 4, bottom: 4 }}>
         <CartesianGrid horizontal={false} strokeDasharray="3 3" />
         <XAxis type="number" hide allowDecimals={false} />
