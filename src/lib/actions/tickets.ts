@@ -3,6 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { decryptSecret } from "@/lib/crypto";
+import { sendReplyEmail } from "@/lib/mail/smtp";
+import { deleteAttachmentFile, readAttachmentFile } from "@/lib/uploads";
 import {
   createTicketSchema,
   addReplySchema,
@@ -87,6 +90,58 @@ export async function updateTicket(input: {
   return { ok: true, data: undefined };
 }
 
+export async function deleteTicket(ticketId: string): Promise<ActionResult> {
+  const session = await requireSession();
+  if (session.user.role !== "ADMIN") {
+    return { ok: false, error: "Solo un administrador puede eliminar tickets." };
+  }
+
+  const ticket = await prisma.ticket.findUnique({
+    where: { id: ticketId },
+    select: {
+      id: true,
+      attachments: { select: { storedFilename: true } },
+      replies: {
+        select: { attachments: { select: { storedFilename: true } } },
+      },
+    },
+  });
+
+  if (!ticket) return { ok: false, error: "Ticket no encontrado." };
+
+  const storedFilenames = [
+    ...ticket.attachments.map((attachment) => attachment.storedFilename),
+    ...ticket.replies.flatMap((reply) =>
+      reply.attachments.map((attachment) => attachment.storedFilename)
+    ),
+  ];
+
+  await prisma.ticket.delete({ where: { id: ticket.id } });
+  await Promise.all(storedFilenames.map((storedFilename) => deleteAttachmentFile(storedFilename)));
+
+  revalidatePath("/tickets");
+  revalidatePath("/");
+  return { ok: true, data: undefined };
+}
+
+export async function markTicketMessagesRead(
+  ticketId: string
+): Promise<ActionResult<{ marked: number }>> {
+  await requireSession();
+
+  const result = await prisma.ticketReply.updateMany({
+    where: { ticketId, isFromStudent: true, readAt: null },
+    data: { readAt: new Date() },
+  });
+
+  if (result.count > 0) {
+    revalidatePath("/tickets");
+    revalidatePath(`/tickets/${ticketId}`);
+  }
+
+  return { ok: true, data: { marked: result.count } };
+}
+
 export async function addTicketReply(input: {
   ticketId: string;
   body: string;
@@ -110,11 +165,11 @@ export async function addTicketReply(input: {
     },
   });
 
-  // Si el ticket estaba abierto y se responde al alumno, lo pasamos a "en progreso".
+  // Toda respuesta pública del agente deja el ticket listo para seguimiento.
   if (!isInternalNote) {
     await prisma.ticket.updateMany({
-      where: { id: ticketId, status: "OPEN" },
-      data: { status: "IN_PROGRESS" },
+      where: { id: ticketId, status: { in: ["OPEN", "CLOSED"] } },
+      data: { status: "IN_PROGRESS", closedAt: null },
     });
   }
 
@@ -122,4 +177,82 @@ export async function addTicketReply(input: {
   revalidatePath("/tickets");
 
   return { ok: true, data: { replyId: reply.id } };
+}
+
+export async function sendTicketReplyEmail(replyId: string): Promise<ActionResult> {
+  await requireSession();
+
+  const [reply, mailbox] = await Promise.all([
+    prisma.ticketReply.findUnique({
+      where: { id: replyId },
+      include: {
+        attachments: true,
+        ticket: {
+          include: {
+            incomingEmails: {
+              where: { messageId: { not: null } },
+              orderBy: { receivedAt: "desc" },
+              take: 1,
+              select: { messageId: true },
+            },
+          },
+        },
+      },
+    }),
+    prisma.mailboxConfig.findFirst({ where: { enabled: true } }),
+  ]);
+
+  if (!reply) return { ok: false, error: "Respuesta no encontrada." };
+  if (reply.isInternalNote) {
+    return { ok: false, error: "Las notas internas no se envían por correo." };
+  }
+  if (reply.sentViaEmail) {
+    return { ok: true, data: undefined };
+  }
+  if (!mailbox) {
+    return { ok: false, error: "Configura y activa el buzón SMTP antes de enviar." };
+  }
+
+  try {
+    const attachments = await Promise.all(
+      reply.attachments.map(async (attachment) => ({
+        filename: attachment.filename,
+        content: await readAttachmentFile(attachment.storedFilename),
+        contentType: attachment.mimeType,
+      }))
+    );
+
+    const outgoingMessageId = await sendReplyEmail(
+      {
+        smtpHost: mailbox.smtpHost,
+        smtpPort: mailbox.smtpPort,
+        smtpUser: mailbox.smtpUser,
+        smtpPassword: decryptSecret(mailbox.smtpPasswordEncrypted),
+        smtpUseTls: mailbox.smtpUseTls,
+        fromAddress: mailbox.fromAddress,
+      },
+      {
+        to: reply.ticket.studentEmail,
+        subject: reply.ticket.subject.toLowerCase().startsWith("re:")
+          ? reply.ticket.subject
+          : `Re: ${reply.ticket.subject}`,
+        text: reply.body,
+        replyToMessageId: reply.ticket.incomingEmails[0]?.messageId ?? undefined,
+        attachments,
+      }
+    );
+
+    await prisma.ticketReply.update({
+      where: { id: reply.id },
+      data: { sentViaEmail: true, sentAt: new Date(), outgoingMessageId },
+    });
+  } catch (error) {
+    return {
+      ok: false,
+      error: `No se pudo enviar el correo: ${error instanceof Error ? error.message : "error desconocido"}`,
+    };
+  }
+
+  revalidatePath(`/tickets/${reply.ticketId}`);
+  return { ok: true, data: undefined };
 }

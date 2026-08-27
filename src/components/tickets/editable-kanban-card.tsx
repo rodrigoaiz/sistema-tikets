@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { EditablePriorityBadge } from "@/components/tickets/editable-priority-badge";
+import { Badge } from "@/components/ui/badge";
+import { Mail } from "lucide-react";
 import type { Priority, TicketStatus } from "@prisma/client";
 
 export function EditableKanbanCard({
@@ -19,6 +21,7 @@ export function EditableKanbanCard({
     priority: Priority;
     status: TicketStatus;
     categoryLabel: string | null;
+    unreadCount: number;
   };
   isDragging: boolean;
   onDragStart: (ticketId: string) => void;
@@ -52,7 +55,15 @@ export function EditableKanbanCard({
         >
           #{ticket.number}
         </Link>
-        <EditablePriorityBadge priority={ticket.priority} ticketId={ticket.id} />
+        <div className="flex flex-wrap items-center justify-end gap-1.5">
+          {ticket.unreadCount > 0 ? (
+            <Badge variant="destructive" title="Mensajes nuevos del alumno">
+              <Mail />
+              {ticket.unreadCount} {ticket.unreadCount === 1 ? "nuevo" : "nuevos"}
+            </Badge>
+          ) : null}
+          <EditablePriorityBadge priority={ticket.priority} ticketId={ticket.id} />
+        </div>
       </div>
 
       <Link
@@ -65,8 +76,6 @@ export function EditableKanbanCard({
       <p className="truncate text-xs text-muted-foreground">
         {ticket.categoryLabel ?? "Sin categoría"}
       </p>
-
-      <p className="text-[11px] text-muted-foreground/70">Arrastra para cambiar de estado</p>
     </article>
   );
 }

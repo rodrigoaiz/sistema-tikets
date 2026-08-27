@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { addTicketReply } from "@/lib/actions/tickets";
+import { addTicketReply, sendTicketReplyEmail } from "@/lib/actions/tickets";
 import { uploadReplyAttachment } from "@/lib/actions/attachments";
 import { Loader2, Paperclip, X, StickyNote, Mail } from "lucide-react";
 
@@ -30,16 +30,35 @@ export function TicketReplyForm({ ticketId }: { ticketId: string }) {
         return;
       }
 
+      let attachmentFailed = false;
       for (const file of files) {
         const uploadResult = await uploadReplyAttachment(ticketId, result.data.replyId, file);
         if (!uploadResult.ok) {
+          attachmentFailed = true;
           toast.error(`No se pudo adjuntar "${file.name}": ${uploadResult.error}`);
         }
       }
 
       setBody("");
       setFiles([]);
-      toast.success(mode === "note" ? "Nota interna agregada." : "Respuesta registrada.");
+
+      if (mode === "note") {
+        toast.success("Nota interna agregada.");
+        return;
+      }
+
+      if (attachmentFailed) {
+        toast.error("La respuesta se guardó, pero no se envió porque falló un adjunto.");
+        return;
+      }
+
+      const sendResult = await sendTicketReplyEmail(result.data.replyId);
+      if (!sendResult.ok) {
+        toast.error(`La respuesta se guardó, pero no se envió. ${sendResult.error}`);
+        return;
+      }
+
+      toast.success("Respuesta enviada por correo.");
     });
   }
 
@@ -64,7 +83,7 @@ export function TicketReplyForm({ ticketId }: { ticketId: string }) {
         placeholder={
           mode === "note"
             ? "Nota interna — no se envía al alumno. Útil para dejar contexto a otros agentes."
-            : "Escribe lo que le respondiste al alumno (por ahora se registra aquí; el envío automático por correo se activa en Ajustes cuando conectes el buzón)…"
+            : "Escribe la respuesta que se enviará al correo del alumno."
         }
         rows={4}
         className="mt-3"
@@ -77,7 +96,7 @@ export function TicketReplyForm({ ticketId }: { ticketId: string }) {
           <input
             type="file"
             multiple
-            accept="image/png,image/jpeg,image/webp,image/gif,application/pdf"
+            accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,application/pdf"
             className="hidden"
             onChange={(e) => setFiles((prev) => [...prev, ...Array.from(e.target.files ?? [])])}
           />
@@ -85,7 +104,7 @@ export function TicketReplyForm({ ticketId }: { ticketId: string }) {
 
         <Button size="sm" onClick={handleSubmit} disabled={isPending || body.trim().length === 0}>
           {isPending ? <Loader2 className="size-4 animate-spin" /> : null}
-          {mode === "note" ? "Guardar nota" : "Guardar respuesta"}
+          {mode === "note" ? "Guardar nota" : "Enviar respuesta"}
         </Button>
       </div>
 

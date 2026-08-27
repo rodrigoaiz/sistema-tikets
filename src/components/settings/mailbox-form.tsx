@@ -34,6 +34,8 @@ const schema = z.object({
   smtpUseTls: z.boolean(),
   fromAddress: z.string().email("Correo inválido"),
   enabled: z.boolean(),
+  autoCloseEnabled: z.boolean(),
+  autoCloseAfterHours: z.coerce.number().int().min(1).max(720),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -249,6 +251,50 @@ export function MailboxForm({
                   <Switch checked={field.value} onCheckedChange={field.onChange} />
                 </FormControl>
                 <FormLabel className="font-normal">Usar TLS/SSL (recomendado)</FormLabel>
+              </FormItem>
+            )}
+          />
+        </section>
+
+        <section className="flex flex-col gap-4 border-t border-border pt-6">
+          <div>
+            <h3 className="text-sm font-medium">Cierre automático</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Cierra tickets en progreso cuando el alumno no responde después de una respuesta
+              pública enviada correctamente por correo.
+            </p>
+          </div>
+
+          <FormField
+            control={form.control}
+            name="autoCloseEnabled"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center gap-2 space-y-0">
+                <FormControl>
+                  <Switch checked={field.value} onCheckedChange={field.onChange} />
+                </FormControl>
+                <div>
+                  <FormLabel className="font-normal">Activar cierre automático</FormLabel>
+                  <FormDescription>
+                    No aplica a tickets abiertos, notas internas ni respuestas que no se hayan
+                    enviado.
+                  </FormDescription>
+                </div>
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="autoCloseAfterHours"
+            render={({ field }) => (
+              <FormItem className="max-w-xs">
+                <FormLabel>Esperar antes de cerrar (horas)</FormLabel>
+                <FormControl>
+                  <Input type="number" min={1} max={720} {...field} />
+                </FormControl>
+                <FormDescription>Valor recomendado: 48 horas.</FormDescription>
+                <FormMessage />
               </FormItem>
             )}
           />

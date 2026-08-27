@@ -16,12 +16,21 @@ export async function GET(request: NextRequest) {
   const since = request.nextUrl.searchParams.get("since");
   const sinceDate = since ? new Date(since) : new Date(Date.now() - 60_000);
 
-  const [newTickets, pendingEmails] = await Promise.all([
+  const [newTickets, newStudentReplies, pendingEmails] = await Promise.all([
     prisma.ticket.findMany({
       where: { createdAt: { gt: sinceDate } },
       orderBy: { createdAt: "desc" },
       take: 20,
       select: { id: true, number: true, subject: true, priority: true, studentEmail: true },
+    }),
+    prisma.ticketReply.findMany({
+      where: { isFromStudent: true, createdAt: { gt: sinceDate } },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+      select: {
+        id: true,
+        ticket: { select: { id: true, number: true, subject: true } },
+      },
     }),
     prisma.incomingEmail.count({ where: { status: "PENDING" } }),
   ]);
@@ -29,6 +38,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     serverTime: new Date().toISOString(),
     newTickets,
+    newStudentReplies,
     pendingEmailsCount: pendingEmails,
   });
 }

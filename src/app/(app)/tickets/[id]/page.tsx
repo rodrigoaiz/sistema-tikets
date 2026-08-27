@@ -1,13 +1,15 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getActiveCategories } from "@/lib/tickets";
 import { PriorityBadge, StatusBadge } from "@/components/ticket-badges";
 import { TicketControls } from "@/components/tickets/ticket-controls";
-import { AttachmentList } from "@/components/tickets/attachment-list";
 import { TicketThread } from "@/components/tickets/ticket-thread";
 import { TicketReplyForm } from "@/components/tickets/ticket-reply-form";
+import { MarkTicketRead } from "@/components/tickets/mark-ticket-read";
+import { DeleteTicketButton } from "@/components/tickets/delete-ticket-button";
 import { SOURCE_LABEL } from "@/lib/constants";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -21,7 +23,7 @@ export default async function TicketDetailPage({
 }) {
   const { id } = await params;
 
-  const [ticket, categories] = await Promise.all([
+  const [ticket, categories, session] = await Promise.all([
     prisma.ticket.findUnique({
       where: { id },
       include: {
@@ -34,6 +36,7 @@ export default async function TicketDetailPage({
       },
     }),
     getActiveCategories(),
+    auth(),
   ]);
 
   if (!ticket) {
@@ -46,6 +49,10 @@ export default async function TicketDetailPage({
 
   return (
     <div className="max-w-3xl">
+      <MarkTicketRead
+        ticketId={ticket.id}
+        unreadCount={ticket.replies.filter((reply) => reply.isFromStudent && !reply.readAt).length}
+      />
       <Link
         href="/tickets"
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
@@ -68,6 +75,9 @@ export default async function TicketDetailPage({
         <div className="flex items-center gap-2">
           <PriorityBadge priority={ticket.priority} />
           <StatusBadge status={ticket.status} />
+          {session?.user.role === "ADMIN" ? (
+            <DeleteTicketButton ticketId={ticket.id} ticketNumber={ticket.number} />
+          ) : null}
         </div>
       </div>
 
@@ -93,17 +103,18 @@ export default async function TicketDetailPage({
         />
       </div>
 
-      <div className="mb-6 rounded-lg border border-border p-4">
-        <span className="mb-2 block text-xs font-medium text-muted-foreground">
-          Descripción del problema
-        </span>
-        <p className="whitespace-pre-wrap text-sm">{ticket.description}</p>
-        <AttachmentList attachments={ticket.attachments} className="mt-3" />
-      </div>
-
       <h2 className="mb-3 text-sm font-medium">Conversación</h2>
       <div className="mb-4">
-        <TicketThread replies={ticket.replies} />
+        <TicketThread
+          initialMessage={{
+            body: ticket.description,
+            createdAt: ticket.createdAt,
+            studentName: ticket.studentName,
+            attachments: ticket.attachments,
+            receivedViaEmail: ticket.source === "EMAIL",
+          }}
+          replies={ticket.replies}
+        />
       </div>
 
       <TicketReplyForm ticketId={ticket.id} />

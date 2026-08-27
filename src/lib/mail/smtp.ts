@@ -1,4 +1,3 @@
-import "server-only";
 import nodemailer from "nodemailer";
 
 export type SmtpCredentials = {
@@ -39,15 +38,22 @@ export async function sendReplyEmail(
     to: string;
     subject: string;
     text: string;
+    replyToMessageId?: string;
+    messageId?: string;
     attachments?: Array<{ filename: string; content: Buffer; contentType: string }>;
   }
-): Promise<void> {
+): Promise<string | null> {
   const transport = buildTransport(creds);
-  await transport.sendMail({
+  const info = await transport.sendMail({
     from: creds.fromAddress,
     to: input.to,
     subject: input.subject,
     text: input.text,
+    inReplyTo: input.replyToMessageId,
+    references: input.replyToMessageId,
+    messageId: input.messageId,
     attachments: input.attachments,
   });
+
+  return typeof info.messageId === "string" ? info.messageId : null;
 }

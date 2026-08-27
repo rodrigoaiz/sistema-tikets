@@ -45,6 +45,8 @@ export type MailboxFormInput = {
   smtpUseTls: boolean;
   fromAddress: string;
   enabled: boolean;
+  autoCloseEnabled: boolean;
+  autoCloseAfterHours: number;
 };
 
 async function resolvePasswords(input: MailboxFormInput) {
@@ -136,6 +138,8 @@ export async function saveMailboxConfig(input: MailboxFormInput): Promise<Action
     smtpUseTls: parsed.data.smtpUseTls,
     fromAddress: parsed.data.fromAddress,
     enabled: parsed.data.enabled,
+    autoCloseEnabled: parsed.data.autoCloseEnabled,
+    autoCloseAfterHours: parsed.data.autoCloseAfterHours,
   };
 
   if (existing) {

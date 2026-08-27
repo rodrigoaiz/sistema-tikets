@@ -112,10 +112,11 @@ export async function replyToIncomingEmail(input: {
       {
         to: email.fromEmail,
         subject: email.subject.toLowerCase().startsWith("re:")
-          ? email.subject
-          : `Re: ${email.subject || "Consulta de soporte"}`,
-        text: body,
-      }
+           ? email.subject
+           : `Re: ${email.subject || "Consulta de soporte"}`,
+         text: body,
+         replyToMessageId: email.messageId ?? undefined,
+       }
     );
   } catch (error) {
     return {
@@ -136,11 +137,31 @@ export async function replyToIncomingEmail(input: {
 export async function discardEmail(incomingEmailId: string): Promise<ActionResult> {
   await requireSession();
 
-  await prisma.incomingEmail.update({
-    where: { id: incomingEmailId },
+  const result = await prisma.incomingEmail.updateMany({
+    where: { id: incomingEmailId, status: "PENDING" },
     data: { status: "DISCARDED" },
   });
 
+  if (result.count === 0) return { ok: false, error: "Este correo ya fue procesado." };
+
   revalidatePath("/inbox");
+  revalidatePath("/inbox/archive");
+  return { ok: true, data: undefined };
+}
+
+export async function restoreDiscardedEmail(incomingEmailId: string): Promise<ActionResult> {
+  await requireSession();
+
+  const result = await prisma.incomingEmail.updateMany({
+    where: { id: incomingEmailId, status: "DISCARDED" },
+    data: { status: "PENDING" },
+  });
+
+  if (result.count === 0) {
+    return { ok: false, error: "Este correo ya no está en el archivo de descartados." };
+  }
+
+  revalidatePath("/inbox");
+  revalidatePath("/inbox/archive");
   return { ok: true, data: undefined };
 }

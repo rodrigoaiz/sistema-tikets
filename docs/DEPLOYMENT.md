@@ -86,6 +86,10 @@ ports:
 
 La aplicación Next.js escucha en `3000` únicamente dentro de Docker. PostgreSQL
 se publica solo en `127.0.0.1:5432` y no debe exponerse a Internet.
+Los servicios `telegram-worker` y `auto-close-worker` tampoco publican puertos;
+solo usan PostgreSQL y sus servicios salientes. Define `TELEGRAM_BOT_TOKEN` en
+`.env` para activar las notificaciones. El autocierre se activa desde
+`Ajustes > Correo` y utiliza el buzón SMTP configurado.
 
 ## URLs Y Puertos
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { PRIORITY_LABEL } from "@/lib/constants";
 
@@ -15,6 +16,10 @@ type NewTicket = {
 type PollResponse = {
   serverTime: string;
   newTickets: NewTicket[];
+  newStudentReplies: Array<{
+    id: string;
+    ticket: { id: string; number: number; subject: string };
+  }>;
   pendingEmailsCount: number;
 };
 
@@ -27,9 +32,11 @@ const POLL_INTERVAL_MS = 20_000;
  * notificación por ticket nuevo, nunca repetida.
  */
 export function useTicketNotifications() {
+  const router = useRouter();
   const [pendingEmailsCount, setPendingEmailsCount] = useState(0);
   const lastCheckedRef = useRef(new Date().toISOString());
   const seenIdsRef = useRef(new Set<string>());
+  const seenReplyIdsRef = useRef(new Set<string>());
 
   useEffect(() => {
     let cancelled = false;
@@ -61,6 +68,26 @@ export function useTicketNotifications() {
           }
         }
 
+        let hasNewStudentReply = false;
+        for (const reply of data.newStudentReplies) {
+          if (seenReplyIdsRef.current.has(reply.id)) continue;
+          seenReplyIdsRef.current.add(reply.id);
+          hasNewStudentReply = true;
+
+          const title = `Nuevo mensaje en ticket #${reply.ticket.number}`;
+          toast(title, { description: reply.ticket.subject });
+
+          if (typeof window !== "undefined" && "Notification" in window) {
+            if (Notification.permission === "granted") {
+              new Notification(title, { body: reply.ticket.subject });
+            }
+          }
+        }
+
+        if (hasNewStudentReply) {
+          router.refresh();
+        }
+
         lastCheckedRef.current = data.serverTime;
       } catch {
         // Silencioso: si falla el polling no interrumpimos la UI.
@@ -73,7 +100,7 @@ export function useTicketNotifications() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, []);
+  }, [router]);
 
   return { pendingEmailsCount };
 }

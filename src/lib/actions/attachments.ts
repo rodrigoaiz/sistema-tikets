@@ -29,7 +29,7 @@ export async function uploadTicketAttachment(
   if (!isAllowedAttachmentType(file.type)) {
     return {
       ok: false,
-      error: "Tipo de archivo no permitido. Solo imágenes (PNG/JPG/WEBP/GIF) o PDF.",
+      error: "Tipo de archivo no permitido. Solo imágenes (PNG/JPG/WEBP/GIF/SVG) o PDF.",
     };
   }
   if (file.size > MAX_ATTACHMENT_SIZE_BYTES) {
@@ -63,7 +63,7 @@ export async function uploadReplyAttachment(
   if (!isAllowedAttachmentType(file.type)) {
     return {
       ok: false,
-      error: "Tipo de archivo no permitido. Solo imágenes (PNG/JPG/WEBP/GIF) o PDF.",
+      error: "Tipo de archivo no permitido. Solo imágenes (PNG/JPG/WEBP/GIF/SVG) o PDF.",
     };
   }
   if (file.size > MAX_ATTACHMENT_SIZE_BYTES) {

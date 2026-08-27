@@ -16,6 +16,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { updateProfileName, updatePassword } from "@/lib/actions/settings";
+import { TelegramSettings } from "@/components/settings/telegram-settings";
 import { Loader2 } from "lucide-react";
 
 const profileSchema = z.object({ name: z.string().min(2, "Muy corto") });
@@ -30,7 +31,21 @@ const passwordSchema = z
     path: ["confirmPassword"],
   });
 
-export function ProfileForm({ name, email }: { name: string; email: string }) {
+export function ProfileForm({
+  name,
+  email,
+  telegram,
+}: {
+  name: string;
+  email: string;
+  telegram: {
+    botConfigured: boolean;
+    linked: boolean;
+    enabled: boolean;
+    notifyStudentReplies: boolean;
+    notifyInboxEmails: boolean;
+  };
+}) {
   const [isSavingName, startSavingName] = useTransition();
   const [isSavingPassword, startSavingPassword] = useTransition();
 
@@ -94,6 +109,8 @@ export function ProfileForm({ name, email }: { name: string; email: string }) {
           </Button>
         </form>
       </Form>
+
+      <TelegramSettings {...telegram} />
 
       <Form {...passwordForm}>
         <form

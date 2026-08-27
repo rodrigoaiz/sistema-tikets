@@ -28,6 +28,15 @@ export default async function SettingsPage({
       select: { id: true, name: true, email: true, role: true, createdAt: true },
     }),
   ]);
+  const telegramUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: {
+      telegramChatId: true,
+      telegramNotificationsEnabled: true,
+      telegramNotifyStudentReplies: true,
+      telegramNotifyInboxEmails: true,
+    },
+  });
 
   return (
     <div className="max-w-3xl">
@@ -56,6 +65,8 @@ export default async function SettingsPage({
               smtpUseTls: mailbox?.smtpUseTls ?? true,
               fromAddress: mailbox?.fromAddress ?? "",
               enabled: mailbox?.enabled ?? false,
+              autoCloseEnabled: mailbox?.autoCloseEnabled ?? false,
+              autoCloseAfterHours: mailbox?.autoCloseAfterHours ?? 48,
             }}
           />
         </TabsContent>
@@ -72,6 +83,13 @@ export default async function SettingsPage({
           <ProfileForm
             name={session?.user?.name ?? ""}
             email={session?.user?.email ?? ""}
+            telegram={{
+              botConfigured: Boolean(process.env.TELEGRAM_BOT_TOKEN),
+              linked: Boolean(telegramUser?.telegramChatId),
+              enabled: telegramUser?.telegramNotificationsEnabled ?? false,
+              notifyStudentReplies: telegramUser?.telegramNotifyStudentReplies ?? true,
+              notifyInboxEmails: telegramUser?.telegramNotifyInboxEmails ?? true,
+            }}
           />
         </TabsContent>
       </Tabs>

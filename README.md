@@ -70,16 +70,46 @@ El sistema no convierte automáticamente todos los correos en tickets. El flujo 
 1. El script IMAP revisa el buzón y guarda mensajes nuevos en `IncomingEmail`.
 2. En `/inbox` decides si convertir el mensaje en ticket, responderlo sin ticket, o descartarlo.
 3. La respuesta se envía por SMTP y el correo se marca como respondido únicamente después de que el envío termina correctamente.
+4. Las respuestas posteriores del alumno se reconocen por `In-Reply-To`/`References` y se agregan a la conversación del ticket existente.
+
+Si se activa **Cierre automático** desde `/settings`, los tickets en progreso que
+tengan una respuesta pública del agente enviada correctamente por correo se
+revisan después de 48 horas sin respuesta del alumno. El sistema envía un aviso
+por correo y solo después marca el ticket como cerrado. Si el alumno contesta a
+ese mismo correo, el ticket se reabre automáticamente.
 
 Configura IMAP/SMTP en `/settings`. Las contraseñas se guardan cifradas con AES-256-GCM usando `MAILBOX_ENCRYPTION_KEY`; no se almacenan en texto plano.
 
 Para probar o ejecutar una revisión manual:
 
 ```bash
-npm run mail:poll
+docker compose run --rm mail-worker npm run mail:poll
 ```
 
-En producción, programa `npm run mail:poll` con cron o un systemd timer cada 2–5 minutos. El script no crea tickets por sí mismo.
+Para ejecutar manualmente una revisión de autocierre:
+
+```bash
+docker compose run --rm auto-close-worker npm run tickets:auto-close
+```
+
+En producción, Docker Compose mantiene el servicio `mail-worker` activo y revisa
+el buzón cada 60 segundos. Puedes cambiar el intervalo con
+`MAIL_POLL_INTERVAL_SECONDS` en `.env`. El worker no crea tickets por sí mismo.
+
+## Telegram
+
+Las nuevas respuestas de alumnos pueden enviarse de inmediato a Telegram. El sistema también
+puede avisar cuando llega un correo independiente a la Bandeja de entrada.
+
+1. Crea un bot con `@BotFather` y copia su token en `TELEGRAM_BOT_TOKEN` dentro de `.env`.
+2. Reconstruye los servicios: `docker compose up -d --build`.
+3. Abre `Mi cuenta` desde el dashboard y pulsa `Generar código`.
+4. En Telegram, abre tu bot y envíale `/start CÓDIGO`.
+5. Regresa al dashboard y pulsa `Ya lo vinculé`.
+
+El worker `telegram-worker` procesa las vinculaciones y entrega los avisos con reintentos. No
+publica ningún puerto adicional. El token solo se configura como secreto de entorno y nunca se
+guarda en la base de datos.
 
 ## Usuarios y permisos
 
@@ -123,6 +153,8 @@ Los adjuntos viven en el volumen Docker `helpdesk-sep_uploads_data`. Inclúyelo 
 - Bandeja de triage de correos
 - Configuración de buzón, categorías y cuenta
 - Notificaciones del navegador mediante polling
+- Notificaciones de Telegram para respuestas de alumnos y correos nuevos
+- Cierre automático configurable de tickets en progreso después de 48 horas sin respuesta
 - Arquitectura lista para sugerencias de IA en una siguiente fase
 
 ## Seguridad antes de exponerlo

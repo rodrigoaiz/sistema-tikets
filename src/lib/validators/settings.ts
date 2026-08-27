@@ -14,6 +14,8 @@ export const mailboxConfigSchema = z.object({
   smtpUseTls: z.boolean().default(true),
   fromAddress: z.string().trim().email("Correo remitente inválido."),
   enabled: z.boolean().default(false),
+  autoCloseEnabled: z.boolean().default(false),
+  autoCloseAfterHours: z.coerce.number().int().min(1).max(720).default(48),
 });
 
 export type MailboxConfigInput = z.infer<typeof mailboxConfigSchema>;

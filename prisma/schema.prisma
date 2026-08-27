@@ -39,18 +39,45 @@ enum IncomingEmailStatus {
   DISCARDED // Descartado / no requiere acción
 }
 
+enum TelegramNotificationKind {
+  STUDENT_REPLY
+  INCOMING_EMAIL
+}
+
+enum TelegramNotificationStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+}
+
+enum TicketAutoCloseAttemptStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+}
+
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  name         String
-  role         Role     @default(ADMIN)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                           String    @id @default(cuid())
+  email                        String    @unique
+  passwordHash                 String
+  name                         String
+  role                         Role      @default(ADMIN)
+  telegramChatId               String?
+  telegramNotificationsEnabled Boolean   @default(false)
+  telegramNotifyStudentReplies Boolean   @default(true)
+  telegramNotifyInboxEmails    Boolean   @default(true)
+  telegramLinkCodeHash         String?
+  telegramLinkCodeExpiresAt    DateTime?
+  createdAt                    DateTime  @default(now())
+  updatedAt                    DateTime  @updatedAt
 
-  assignedTickets Ticket[]      @relation("AssignedTickets")
-  ticketReplies   TicketReply[]
+  assignedTickets       Ticket[]               @relation("AssignedTickets")
+  ticketReplies         TicketReply[]
+  telegramNotifications TelegramNotification[]
 
+  @@index([telegramLinkCodeHash])
   @@map("users")
 }
 
@@ -70,26 +97,28 @@ model Category {
 }
 
 model Ticket {
-  id            String       @id @default(cuid())
-  number        Int          @unique @default(autoincrement()) // folio corto, ej. #142
-  subject       String
-  description   String
-  studentEmail  String
-  studentName   String?
-  priority      Priority     @default(MEDIUM)
-  status        TicketStatus @default(OPEN)
-  source        TicketSource @default(MANUAL)
-  categoryId    String?
-  category      Category?    @relation(fields: [categoryId], references: [id])
-  assignedToId  String?
-  assignedTo    User?        @relation("AssignedTickets", fields: [assignedToId], references: [id])
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  closedAt      DateTime?
+  id           String       @id @default(cuid())
+  number       Int          @unique @default(autoincrement()) // folio corto, ej. #142
+  subject      String
+  description  String
+  studentEmail String
+  studentName  String?
+  priority     Priority     @default(MEDIUM)
+  status       TicketStatus @default(OPEN)
+  source       TicketSource @default(MANUAL)
+  categoryId   String?
+  category     Category?    @relation(fields: [categoryId], references: [id])
+  assignedToId String?
+  assignedTo   User?        @relation("AssignedTickets", fields: [assignedToId], references: [id])
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  closedAt     DateTime?
 
-  replies        TicketReply[]
-  attachments    Attachment[]
-  incomingEmails IncomingEmail[]
+  replies               TicketReply[]
+  attachments           Attachment[]
+  incomingEmails        IncomingEmail[]
+  telegramNotifications TelegramNotification[]
+  autoCloseAttempts     TicketAutoCloseAttempt[]
 
   @@index([status])
   @@index([priority])
@@ -98,20 +127,46 @@ model Ticket {
 }
 
 model TicketReply {
-  id             String   @id @default(cuid())
-  ticketId       String
-  ticket         Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  authorId       String?
-  author         User?    @relation(fields: [authorId], references: [id])
-  body           String
-  isInternalNote Boolean  @default(false) // true = nota interna, no se envía al alumno
-  sentViaEmail   Boolean  @default(false)
-  createdAt      DateTime @default(now())
+  id                String    @id @default(cuid())
+  ticketId          String
+  ticket            Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId          String?
+  author            User?     @relation(fields: [authorId], references: [id])
+  body              String
+  isInternalNote    Boolean   @default(false) // true = nota interna, no se envía al alumno
+  isFromStudent     Boolean   @default(false)
+  sentViaEmail      Boolean   @default(false)
+  sentAt            DateTime?
+  outgoingMessageId String?   @unique
+  readAt            DateTime?
+  isAutoCloseNotice Boolean   @default(false)
+  createdAt         DateTime  @default(now())
 
-  attachments Attachment[]
+  attachments       Attachment[]
+  autoCloseAttempts TicketAutoCloseAttempt[] @relation("AutoCloseAgentReply")
 
   @@index([ticketId])
+  @@index([ticketId, isFromStudent, readAt])
   @@map("ticket_replies")
+}
+
+model TicketAutoCloseAttempt {
+  id            String                       @id @default(cuid())
+  ticketId      String
+  ticket        Ticket                       @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  agentReplyId  String
+  agentReply    TicketReply                  @relation("AutoCloseAgentReply", fields: [agentReplyId], references: [id], onDelete: Cascade)
+  status        TicketAutoCloseAttemptStatus @default(PENDING)
+  attempts      Int                          @default(0)
+  nextAttemptAt DateTime                     @default(now())
+  lastError     String?
+  sentAt        DateTime?
+  createdAt     DateTime                     @default(now())
+  updatedAt     DateTime                     @updatedAt
+
+  @@unique([ticketId, agentReplyId])
+  @@index([status, nextAttemptAt])
+  @@map("ticket_auto_close_attempts")
 }
 
 model IncomingEmail {
@@ -128,7 +183,8 @@ model IncomingEmail {
   ticket     Ticket?             @relation(fields: [ticketId], references: [id])
   createdAt  DateTime            @default(now())
 
-  attachments Attachment[]
+  attachments           Attachment[]
+  telegramNotifications TelegramNotification[]
 
   @@index([status])
   @@index([receivedAt])
@@ -136,12 +192,12 @@ model IncomingEmail {
 }
 
 model Attachment {
-  id              String         @id @default(cuid())
-  filename        String // nombre original
-  storedFilename  String         @unique // nombre en disco (evita colisiones)
-  mimeType        String
-  size            Int
-  createdAt       DateTime       @default(now())
+  id             String   @id @default(cuid())
+  filename       String // nombre original
+  storedFilename String   @unique // nombre en disco (evita colisiones)
+  mimeType       String
+  size           Int
+  createdAt      DateTime @default(now())
 
   ticketId        String?
   ticket          Ticket?        @relation(fields: [ticketId], references: [id], onDelete: Cascade)
@@ -154,23 +210,58 @@ model Attachment {
 }
 
 model MailboxConfig {
-  id                   String   @id @default(cuid())
-  name                 String   @default("Bandeja principal")
-  imapHost             String
-  imapPort             Int      @default(993)
-  imapUser             String
+  id                    String    @id @default(cuid())
+  name                  String    @default("Bandeja principal")
+  imapHost              String
+  imapPort              Int       @default(993)
+  imapUser              String
   imapPasswordEncrypted String
-  imapUseTls           Boolean  @default(true)
-  smtpHost             String
-  smtpPort             Int      @default(465)
-  smtpUser             String
+  imapUseTls            Boolean   @default(true)
+  smtpHost              String
+  smtpPort              Int       @default(465)
+  smtpUser              String
   smtpPasswordEncrypted String
-  smtpUseTls           Boolean  @default(true)
-  fromAddress          String
-  enabled              Boolean  @default(false)
-  lastPolledAt         DateTime?
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  smtpUseTls            Boolean   @default(true)
+  fromAddress           String
+  enabled               Boolean   @default(false)
+  autoCloseEnabled      Boolean   @default(false)
+  autoCloseAfterHours   Int       @default(48)
+  lastPolledAt          DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   @@map("mailbox_configs")
+}
+
+model TelegramNotification {
+  id              String                     @id @default(cuid())
+  dedupeKey       String                     @unique
+  kind            TelegramNotificationKind
+  message         String
+  status          TelegramNotificationStatus @default(PENDING)
+  attempts        Int                        @default(0)
+  nextAttemptAt   DateTime                   @default(now())
+  lastError       String?
+  sentAt          DateTime?
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
+  userId          String
+  user            User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ticketId        String?
+  ticket          Ticket?                    @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+  incomingEmailId String?
+  incomingEmail   IncomingEmail?             @relation(fields: [incomingEmailId], references: [id], onDelete: SetNull)
+
+  @@index([status, nextAttemptAt])
+  @@index([userId, createdAt])
+  @@map("telegram_notifications")
+}
+
+model TelegramBotState {
+  id           String   @id @default("default")
+  updateOffset Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("telegram_bot_state")
 }

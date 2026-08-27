@@ -12,7 +12,9 @@
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
-    "mail:poll": "tsx scripts/poll-mailbox.ts"
+    "mail:poll": "tsx scripts/poll-mailbox.ts",
+    "tickets:auto-close": "tsx scripts/auto-close-tickets.ts",
+    "notifications:poll": "tsx scripts/telegram-notifications.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

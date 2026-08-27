@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getActiveCategories } from "@/lib/tickets";
 import { IncomingEmailCard } from "@/components/inbox/incoming-email-card";
 import { Button } from "@/components/ui/button";
-import { Inbox as InboxIcon, Settings, Plus } from "lucide-react";
+import { Archive, Inbox as InboxIcon, Settings, Plus } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +13,7 @@ export default async function InboxPage() {
     prisma.incomingEmail.findMany({
       where: { status: "PENDING" },
       orderBy: { receivedAt: "desc" },
+      include: { attachments: true },
     }),
     getActiveCategories(),
     prisma.mailboxConfig.findFirst(),
@@ -23,6 +24,12 @@ export default async function InboxPage() {
       <PageHeader
         title="Bandeja de entrada"
         description="Correos de alumnos pendientes de triage. Decide si se convierten en ticket, se resuelven sin ticket, o se descartan."
+        actions={
+          <Button size="sm" variant="outline" render={<Link href="/inbox/archive" />}>
+            <Archive className="size-3.5" />
+            Archivo de descartados
+          </Button>
+        }
       />
 
       {!mailbox?.enabled ? (

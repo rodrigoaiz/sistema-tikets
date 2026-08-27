@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { readAttachmentFile } from "@/lib/uploads";
 
-export async function GET(_request: Request, context: RouteContext<"/api/attachments/[id]">) {
+export async function GET(request: Request, context: RouteContext<"/api/attachments/[id]">) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
@@ -21,11 +21,17 @@ export async function GET(_request: Request, context: RouteContext<"/api/attachm
     return NextResponse.json({ error: "Archivo no disponible" }, { status: 404 });
   }
 
+  const forceDownload = new URL(request.url).searchParams.get("download") === "1";
+  const previewableImage = ["image/png", "image/jpeg", "image/webp", "image/gif"].includes(
+    attachment.mimeType
+  );
+
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
       "Content-Type": attachment.mimeType,
-      "Content-Disposition": `inline; filename="${encodeURIComponent(attachment.filename)}"`,
+      "Content-Disposition": `${!forceDownload && previewableImage ? "inline" : "attachment"}; filename="${encodeURIComponent(attachment.filename)}"`,
       "Cache-Control": "private, max-age=3600",
+      "X-Content-Type-Options": "nosniff",
     },
   });
 }
