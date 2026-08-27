@@ -155,7 +155,8 @@ Los adjuntos viven en el volumen Docker `helpdesk-sep_uploads_data`. Inclúyelo 
 - Notificaciones del navegador mediante polling
 - Notificaciones de Telegram para respuestas de alumnos y correos nuevos
 - Cierre automático configurable de tickets en progreso después de 48 horas sin respuesta
-- Arquitectura lista para sugerencias de IA en una siguiente fase
+- Mejora opcional de borradores con IA local del navegador cuando Gemini Nano está disponible
+- La IA solo propone cambios sobre el borrador actual y nunca modifica mensajes guardados
 
 ## Seguridad antes de exponerlo
 
