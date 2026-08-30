@@ -16,6 +16,19 @@ type LanguageModelOptions = {
   expectedOutputs: Array<{ type: "text"; languages: string[] }>;
 };
 
+type LanguageModelMonitor = {
+  addEventListener(
+    event: "downloadprogress",
+    listener: (progress: { loaded: number; total: number }) => void
+  ): void;
+};
+
+type LanguageModelCreateOptions = LanguageModelOptions & {
+  initialPrompts?: Array<{ role: "system"; content: string }>;
+  monitor?: (monitor: LanguageModelMonitor) => void;
+  signal?: AbortSignal;
+};
+
 type LanguageModelSession = {
   prompt(input: string, options?: { signal?: AbortSignal }): Promise<string>;
   destroy(): void;
@@ -23,18 +36,7 @@ type LanguageModelSession = {
 
 type LanguageModelApi = {
   availability(options: LanguageModelOptions): Promise<LanguageModelAvailability>;
-  create(
-    options: LanguageModelOptions & {
-      initialPrompts?: Array<{ role: "system"; content: string }>;
-      monitor?: (monitor: {
-        addEventListener(
-          event: "downloadprogress",
-          listener: (progress: { loaded: number; total: number }) => void
-        ): void;
-      }) => void;
-      signal?: AbortSignal;
-    }
-  ): Promise<LanguageModelSession>;
+  create(options: LanguageModelCreateOptions): Promise<LanguageModelSession>;
 };
 
 const MAX_REPLY_LENGTH = 5000;
@@ -72,6 +74,7 @@ export function TicketReplyForm({ ticketId }: { ticketId: string }) {
   const [files, setFiles] = useState<File[]>([]);
   const [isPending, startTransition] = useTransition();
   const abortControllerRef = useRef<AbortController | null>(null);
+  const modelReadyRef = useRef(false);
 
   useEffect(() => {
     return () => abortControllerRef.current?.abort();
@@ -96,7 +99,9 @@ export function TicketReplyForm({ ticketId }: { ticketId: string }) {
     let session: LanguageModelSession | null = null;
 
     try {
-      const availability = await languageModel.availability(LANGUAGE_MODEL_OPTIONS);
+      const availability = modelReadyRef.current
+        ? "available"
+        : await languageModel.availability(LANGUAGE_MODEL_OPTIONS);
 
       if (availability === "unavailable") {
         toast.info("La mejora local no está disponible en este dispositivo.");
@@ -104,20 +109,31 @@ export function TicketReplyForm({ ticketId }: { ticketId: string }) {
       }
 
       setAiStatus(
-        availability === "available" ? "Preparando la propuesta..." : "Preparando el modelo local..."
+        availability === "available"
+          ? "Preparando la propuesta..."
+          : availability === "downloadable"
+            ? "Descargando el modelo local por primera vez..."
+            : "Esperando la descarga del modelo local..."
       );
-      session = await languageModel.create({
+
+      const createOptions: LanguageModelCreateOptions = {
         ...LANGUAGE_MODEL_OPTIONS,
         initialPrompts: [{ role: "system", content: LANGUAGE_MODEL_SYSTEM_PROMPT }],
         signal: controller.signal,
-        monitor: (monitor) => {
+      };
+
+      if (availability !== "available") {
+        createOptions.monitor = (monitor) => {
           monitor.addEventListener("downloadprogress", ({ loaded, total }) => {
             if (total > 0) {
               setAiStatus(`Descargando modelo local... ${Math.round((loaded / total) * 100)}%`);
             }
           });
-        },
-      });
+        };
+      }
+
+      session = await languageModel.create(createOptions);
+      modelReadyRef.current = true;
 
       const result = (
         await session.prompt(
@@ -143,6 +159,7 @@ export function TicketReplyForm({ ticketId }: { ticketId: string }) {
       setSuggestion(result);
     } catch (error) {
       if (!isAbortError(error)) {
+        modelReadyRef.current = false;
         toast.error("No se pudo mejorar el texto. Tu borrador se conservó sin cambios.");
       }
     } finally {
