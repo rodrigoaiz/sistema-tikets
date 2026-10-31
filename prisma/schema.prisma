@@ -58,6 +58,20 @@ enum TicketAutoCloseAttemptStatus {
   FAILED
 }
 
+enum EmailCampaignStatus {
+  DRAFT
+  QUEUED
+  SENDING
+  COMPLETED
+}
+
+enum EmailCampaignRecipientStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+}
+
 model User {
   id                           String    @id @default(cuid())
   email                        String    @unique
@@ -76,6 +90,7 @@ model User {
   assignedTickets       Ticket[]               @relation("AssignedTickets")
   ticketReplies         TicketReply[]
   telegramNotifications TelegramNotification[]
+  createdEmailCampaigns EmailCampaign[]       @relation("CreatedEmailCampaigns")
 
   @@index([telegramLinkCodeHash])
   @@map("users")
@@ -231,6 +246,46 @@ model MailboxConfig {
   updatedAt             DateTime  @updatedAt
 
   @@map("mailbox_configs")
+}
+
+model EmailCampaign {
+  id                  String              @id @default(cuid())
+  title               String
+  subject             String
+  bodyText            String
+  imageFilename       String
+  imageStoredFilename String
+  imageMimeType       String
+  imageSize           Int
+  status              EmailCampaignStatus @default(DRAFT)
+  createdById         String
+  createdAt           DateTime            @default(now())
+  startedAt           DateTime?
+  completedAt         DateTime?
+  createdBy           User                @relation("CreatedEmailCampaigns", fields: [createdById], references: [id])
+  recipients          EmailCampaignRecipient[]
+
+  @@index([status, createdAt])
+  @@map("email_campaigns")
+}
+
+model EmailCampaignRecipient {
+  id            String                       @id @default(cuid())
+  campaignId    String
+  campaign      EmailCampaign                @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  email         String
+  name          String?
+  status        EmailCampaignRecipientStatus @default(PENDING)
+  attempts      Int                          @default(0)
+  nextAttemptAt DateTime                     @default(now())
+  lastError     String?
+  sentAt        DateTime?
+  createdAt     DateTime                     @default(now())
+  updatedAt     DateTime                     @updatedAt
+
+  @@unique([campaignId, email])
+  @@index([status, nextAttemptAt])
+  @@map("email_campaign_recipients")
 }
 
 model TelegramNotification {

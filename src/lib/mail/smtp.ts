@@ -57,3 +57,35 @@ export async function sendReplyEmail(
 
   return typeof info.messageId === "string" ? info.messageId : null;
 }
+
+export async function sendCampaignEmail(
+  creds: SmtpCredentials,
+  input: {
+    to: string;
+    subject: string;
+    text: string;
+    html: string;
+    messageId: string;
+    image: { filename: string; content: Buffer; contentType: string; cid: string };
+  }
+): Promise<string | null> {
+  const transport = buildTransport(creds);
+  const info = await transport.sendMail({
+    from: creds.fromAddress,
+    to: input.to,
+    subject: input.subject,
+    text: input.text,
+    html: input.html,
+    messageId: input.messageId,
+    attachments: [
+      {
+        filename: input.image.filename,
+        content: input.image.content,
+        contentType: input.image.contentType,
+        cid: input.image.cid,
+      },
+    ],
+  });
+
+  return typeof info.messageId === "string" ? info.messageId : null;
+}

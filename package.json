@@ -13,6 +13,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "mail:poll": "tsx scripts/poll-mailbox.ts",
+    "campaigns:send": "tsx scripts/send-email-campaigns.ts",
     "tickets:auto-close": "tsx scripts/auto-close-tickets.ts",
     "notifications:poll": "tsx scripts/telegram-notifications.ts"
   },

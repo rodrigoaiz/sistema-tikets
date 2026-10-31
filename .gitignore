@@ -23,6 +23,7 @@
 # misc
 .DS_Store
 *.pem
+*.csv
 
 # debug
 npm-debug.log*
@@ -43,6 +44,7 @@ next-env.d.ts
 
 # uploads / adjuntos locales (en producción viven en un volumen de Docker)
 /data/uploads
+/reports
 
 # certificados generados localmente
 /caddy/data

@@ -91,6 +91,29 @@ services:
       - -c
       - while true; do npm run tickets:auto-close; sleep "$${AUTO_CLOSE_POLL_INTERVAL_SECONDS}"; done
 
+  campaign-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      TZ: ${TZ:-America/Mexico_City}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public
+      UPLOADS_DIR: /data/uploads
+      MAX_ATTACHMENT_SIZE_MB: ${MAX_ATTACHMENT_SIZE_MB}
+      MAILBOX_ENCRYPTION_KEY: ${MAILBOX_ENCRYPTION_KEY}
+      CAMPAIGN_POLL_INTERVAL_SECONDS: ${CAMPAIGN_POLL_INTERVAL_SECONDS:-15}
+    volumes:
+      - uploads_data:/data/uploads
+    command:
+      - sh
+      - -c
+      - while true; do npm run campaigns:send; sleep "$${CAMPAIGN_POLL_INTERVAL_SECONDS}"; done
+
   telegram-worker:
     build:
       context: .

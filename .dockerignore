@@ -3,6 +3,7 @@ node_modules
 .git
 .gitignore
 data
+reports
 caddy/data
 caddy/config
 *.md
@@ -11,3 +12,4 @@ caddy/config
 .env.*
 !.env.example
 npm-debug.log*
+*.csv
